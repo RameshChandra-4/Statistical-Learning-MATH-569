@@ -1,0 +1,271 @@
+---
+title: "Untitled"
+author: "Ramesh Chandra Reddy Musilanna"
+date: "`r Sys.Date()`"
+output: html_document
+---
+```{r}
+
+library(MASS)
+library(class)
+library(ggplot2)
+library(mvtnorm)
+library(caret)
+library(stats)
+library(gridExtra)
+library(keras)
+library(tensorflow)
+library(random)
+library(data.table)
+
+```
+## Problem 1
+### 1. Naive Bayes decision boundary
+```{r}
+
+mu1 <- c(1, 0)
+mu2 <- c(0, 1)
+mu3 <- c(-3, 0)
+mu4 <- c(0, 2)
+sigma <- diag(2)
+w1 <- 0.3
+w2 <- 0.7
+w3 <- 0.8
+w4 <- 0.2
+
+# Plotting range
+x_min <- -10
+x_max <- 10
+y_min <- -10
+y_max <- 10
+
+# Calculate Gaussian mixture model for each class
+x <- seq(x_min, x_max, length.out = 100)
+y <- seq(y_min, y_max, length.out = 100)
+pos <- expand.grid(x = x, y = y)
+f1 <- w1 * dmvnorm(pos, mean = mu1, sigma = sigma) + w2 * dmvnorm(pos, mean = mu2, sigma = sigma)
+f2 <- w3 * dmvnorm(pos, mean = mu3, sigma = sigma) + w4 * dmvnorm(pos, mean = mu4, sigma = sigma)
+
+# Plotting the contour lines
+p <- ggplot(data = data.frame(pos), aes(x = x, y = y, z = f1)) + 
+  geom_contour(stat = "contour",position = "identity",aes(color = ..level..), breaks = c(0.05, 0.1, 0.5, 1), size = 0.5, color = "orange") +
+  scale_color_gradient(limits = c(0.05, 1), low = "orange", high = "white") + 
+  geom_contour(stat = "contour",position = "identity",data = data.frame(pos), aes(x = x, y = y, z = f2), aes(color = ..level..), breaks = c(0.05, 0.1, 0.5, 1), size = 0.5, color = "blue") + 
+  scale_color_gradient(limits = c(0.05, 1), low = "blue", high = "white") + 
+  geom_contour(stat = "contour",position = "identity",data = data.frame(pos), aes(x = x, y = y, z = f1 - f2), aes(color = ..level..), breaks = c(0), size = 0.5, color = "black", linetype = "longdash") + 
+xlim(x_min, x_max) + ylim(y_min, y_max) + 
+  ggtitle("Naive Bayes decision boundary") 
+print(p)
+
+
+```
+
+
+
+### 2.a KNN with k = 15.
+```{r}
+
+
+class_org_data <- rbind(w1 * mvrnorm(50, mu1, sigma), w2 * mvrnorm(50, mu2, sigma))
+class_blue_data <- rbind(w3 * mvrnorm(50, mu3, sigma), w4 * mvrnorm(50, mu4, sigma))
+
+
+
+data <- rbind(class_org_data, class_blue_data)
+labs <- c(rep(0, 100), rep(1, 100))
+
+
+knn <- knn(data, data, labs, k = 15)
+
+x_min <- -10
+x_max <- 10
+y_min <- -10
+y_max <- 10
+
+grid <- expand.grid(x = seq(x_min, x_max, length.out = 100),
+                     y = seq(y_min, y_max, length.out = 100))
+labs <- c(rep(0, 100), rep(1, 100))
+Z <- knn(data, train= data, cl= labs, k = 15)
+
+
+ggplot(grid, aes(x = x, y = y)) +
+  geom_tile(alpha = 0.5) +
+  geom_point(data = data.frame(class_org_data), aes(x = class_org_data[,1], y = class_org_data[,2]), color = "orange", shape = 21, size = 4) +
+  geom_point(data = data.frame(class_blue_data), aes(x = class_blue_data[,1], y = class_blue_data[,2]), color = "blue", shape = 21, size = 4) 
+```
+### 2.b Linear model.
+```{r}
+
+
+
+X <- rbind(class_org_data, class_blue_data)
+y <- c(rep(0, 100), rep(1, 100))
+
+# Split the data into training and test sets
+splitIndex <- createDataPartition(y, p = 0.8, list = FALSE, times = 1)
+X_train <- X[splitIndex, ]
+X_test <- X[-splitIndex, ]
+y_train <- y[splitIndex]
+y_test <- y[-splitIndex]
+
+colnames(X_train) <- c("feature1", "feature2")
+y_train = factor(y_train)
+
+clf <- glm(y_train ~ X_train, family = binomial("logit"))
+
+
+# Plot the decision boundary
+X_train_df <- data.frame(X1 = X_train[, 1], X2 = X_train[, 2])
+ggplot(data = X_train_df, aes(x = X1, y = X2, color = factor(y_train))) + 
+  geom_point() + 
+  geom_density2d(alpha = 0.5) +
+  scale_fill_gradient(low = "orange", high = "blue", guide = FALSE) 
+
+```
+### 3 Misclassification error
+
+```{r}
+
+dim(data)
+dim(X_test)
+dim(clf)
+length(labs)
+
+knn_pred_y <- knn(data, X_test,cl=labs)
+knn_misclassification_error <- sum(knn_pred_y != y_test)
+
+
+#lr_pred_y <- glm(data ~ X_test, family = binomial("logit"))
+#lr_misclassification_error <- sum(lr_pred_y != y_test)
+
+
+cat("ERROR RESULTS\n")
+cat(paste("Error 2a: ", round(knn_misclassification_error/200, 3), "\n"))
+
+#cat(paste("Error 2b: ", round(lr_misclassification_error/200, 3), "\n"))
+
+```
+
+
+
+## Problem 2
+
+<p> The median distance to the closest data point can be derived using the cumulative distribution function (CDF) of the distances. Let's consider the CDF of the distances:
+F(r) = P(d < r) = the probability that a randomly selected data point is within a distance r from the origin.
+
+Since the data points are uniformly distributed in the 2-dimensional unit ball, the CDF can be derived as follows:
+
+F(r) = (Area of the 2D disk of radius r)/(Total area of the unit ball)
+
+For a 2-dimensional unit ball, the total area is π, and the area of the disk of radius r is πr^2. Hence,
+
+F(r) = πr^2/π = r^2
+
+The median distance, d_median, is defined as the value of r such that F(r) = 0.5. Hence, we have:
+
+r^2 = 0.5
+r = sqrt(0.5)
+
+So, the median distance to the closest data point is approximately equal to √0.5 = 0.7071. </p>
+
+## Problem 3
+
+
+```{r}
+
+library(MASS)
+library(caret)
+
+# Generate data using Gaussian mixture models
+set.seed(0)
+N <- 200
+cov <- diag(2)
+
+org_data <- rbind(mvrnorm(w1*N, mu1, cov), mvrnorm(w2*N, mu2, cov))
+org_labels <- c(rep(0, w1*N), rep(1, w2*N))
+blue_data <- rbind(mvrnorm(w3*N, mu3, cov), mvrnorm(w4*N, mu4, cov))
+blue_labels <- c(rep(0, w3*N), rep(1, w4*N)) + 1
+
+# Combine data and labels
+X <- rbind(org_data, blue_data)
+y <- c(org_labels, blue_labels)
+
+# Split data into training and testing sets
+splitIndex <- createDataPartition(y, p = 0.5, list = FALSE)
+X_train <- X[splitIndex, ]
+X_test <- X[-splitIndex, ]
+y_train <- y[splitIndex]
+y_test <- y[-splitIndex]
+
+# Calculate training and testing error for different values of k
+k_values <- 1:N
+train_errors <- c()
+test_errors <- c()
+
+length(y_train)
+dim(X_train)
+length(X_test)
+
+for (k in k_values) {
+  #y_train <- c(rep(0, 200), rep(1, 200))
+  knn <- knn(X_train, X_test, cl = y_train, k = k)
+  train_preds <- knn(X_train, X_train, cl = y_train, k = k)
+ # y_train <- c(rep(0, 100), rep(1, 100))
+  test_preds <- knn(X_test, X_train, cl = y_train, k = k)
+  train_errors <- c(train_errors, mean(train_preds != y_train))
+  test_errors <- c(test_errors, mean(test_preds != y_test))
+
+}
+
+matplot(k_values, train_errors, type = "l", xlab = "Number of Epochs", ylab = "Training Error", 
+     main = "Line Graph of Training Error", col = "orange")
+lines(k_values, test_errors, col = "blue",xlab = "Number of Epochs", ylab = "Testing Error", 
+     main = "Line Graph of Testing Error")
+legend("topright", c("Training Error", "Testing Error"), col = c("orange", "blue"), lty = c(1, 1))
+
+
+```
+
+
+## Problem 4
+
+```{r}
+
+N <- 200
+p <- 10
+
+cal_result <- function(x) {
+  sum <- 0
+  for (h in 1:p) {
+    sum <- sum + x[h]^2
+  }
+  result <- exp((-10) * sum^(1/p))
+  return(result)
+}
+
+random_ball_generator <- function(num_points, dim, radius = 1) {
+  ran_dir <- matrix(scale(rnorm(dim * num_points), center = FALSE), nrow = dim)
+  ran_dir <- ran_dir / sqrt(rowSums(ran_dir^2))
+  return(radius * (ran_dir %*% diag(runif(num_points)^(1/dim))))
+}
+
+x_rad <- as.data.frame(random_ball_generator(N, p))
+x_rad[, "result"] <- apply(x_rad, 1, cal_result)
+
+x <- x_rad[, 1:9]
+y <- x_rad[, "result"]
+
+# Split
+splitIndex <- createDataPartition(y, p = 0.8, list = FALSE)
+x_train <- x[splitIndex, ]
+x_test <- x[-splitIndex, ]
+y_train <- y[splitIndex]
+y_test <- y[-splitIndex]
+
+
+model <- knnreg(x = x_train, y = y_train, k = 1)
+p <- ncol(x_train)
+cat("Correct result = ", round(cal_result(rep(0, p)), 5), "\n")
+cat("Predicted result = ", predict(model, newdata = matrix(0, nrow = 1, ncol = p)), "\n")
+
+```

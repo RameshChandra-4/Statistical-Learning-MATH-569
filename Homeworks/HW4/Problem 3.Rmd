@@ -1,0 +1,72 @@
+---
+title: "Problem 3"
+author: "Ramesh Chandra Reddy Musilanna"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+
+```{r}
+
+library(ISLR)
+library(splines)
+library(ggplot2)
+
+SAheart <- read.csv("/Users/ramesh/Desktop/IIT files/Subjects/Statistical Learning MATH 569/HW4/File SAheart.csv",
+    sep=",",head=T,row.names=1)
+X <- SAheart$age
+Y <- SAheart$chd
+
+# Global Linear
+fit_linear <- lm(Y ~ X)
+
+# Global Cubic Polynomial
+fit_cubic_poly <- lm(Y ~ poly(X, 3))
+
+# Cubic Spline - 2 knots
+knots_cubic_spline <- quantile(X, probs = c(0.33, 0.67))
+fit_cubic_spline <- lm(Y ~ bs(X, knots = knots_cubic_spline))
+
+# Natural Cubic Spline - 6 knots
+knots_natural_cubic_spline <- quantile(X, probs = seq(0.2, 0.8, by = 0.2))
+fit_natural_cubic_spline <- lm(Y ~ ns(X, knots = knots_natural_cubic_spline))
+
+```
+
+
+```{r}
+
+# Variance calculation function
+pointwise_variance <- function(fit, X) {
+  X_design <- model.matrix(fit)
+  pred_var <- diag(X_design %*% vcov(fit) %*% t(X_design))
+  return(pred_var)
+}
+
+# Calculate pointwise variance for each model
+var_linear <- pointwise_variance(fit_linear, X)
+var_cubic_poly <- pointwise_variance(fit_cubic_poly, X)
+var_cubic_spline <- pointwise_variance(fit_cubic_spline, X)
+var_natural_cubic_spline <- pointwise_variance(fit_natural_cubic_spline, X)
+```
+
+
+```{r}
+
+# Create a data frame for ggplot
+plot_data <- data.frame(X, var_linear, var_cubic_poly, var_cubic_spline, var_natural_cubic_spline)
+
+# Plot the pointwise variance curves
+ggplot(plot_data, aes(x = X)) +
+  geom_line(aes(y = var_linear, color = "Global Linear")) +
+  geom_line(aes(y = var_cubic_poly, color = "Global Cubic Polynomial")) +
+  geom_line(aes(y = var_cubic_spline, color = "Cubic Spline - 2 knots")) +
+  geom_line(aes(y = var_natural_cubic_spline, color = "Natural Cubic Spline - 6 knots")) +
+  labs(x = "Age", y = "Pointwise Variance", title = "Pointwise Variance Curves", color = "Models") +
+  theme_minimal()
+```
+
+
+
+

@@ -1,0 +1,63 @@
+```{r}
+
+x_data <- c(1959, 1960, 1961, 1962, 1963, 1964, 1965, 1966, 1967, 1968, 1969)
+y_data <- c(4835, 4970, 5085, 5160, 5310, 5260, 5235, 5255, 5235, 5210, 5175)
+
+df <- data.frame(pop = y_data, year = x_data)
+
+
+# Generate regression and construct confidence intervals
+fit <- lm(pop ~ year + I(year^2) + I(year^3), data = df)
+x_values <- seq(-5, 5, 0.1)
+confidence_intervals <- predict(fit, data.frame(year = x_values), interval = "confidence", level = 0.95)
+
+# Create a data frame containing the variables of interest
+df_ci <- data.frame(x_values, confidence_intervals)
+df_ci <- reshape2::melt(df_ci, id.vars = "x_values")
+
+# Plot the results
+library(ggplot2)
+p <- ggplot(df_ci, aes(x = x_values, y = value, colour = variable)) + geom_line() +
+  geom_point(data = df, aes(x = year, y = pop)) +
+  scale_x_continuous("Year") + scale_y_continuous("Population")
+p <- p + ggtitle("Cubic regression with confidence intervals")
+p <- p + scale_color_brewer(name = "Legend", labels = c("Fit", "95% Lower Bound", "95% Upper Bound"), palette = "Set1")
+ggsave(file.path("graphs", "problem2.png"))
+
+
+```
+
+
+```{r}
+# Raw data
+library(reshape2)
+simulation.xs <- c(1949, 1950, 1941, 1942, 1943, 1944, 1945, 1946, 1947, 1948, 1939)
+simulation.ys <- c(4567, 4865, 5005, 5245, 5290, 5469, 5298, 5225, 5445, 5275, 5700)
+simulation.df <- data.frame(pop = simulation.ys, year = simulation.xs)
+
+# Rescale years
+simulation.df$year <- simulation.df$year - 1946
+
+# Generate regression, construct confidence intervals
+fit <- lm(pop ~ year + I(year^2) + I(year^3), data = simulation.df)
+xs <- seq(-5, 5, 0.1)
+fit.confidence <- predict(fit, data.frame(year = xs), interval = "confidence", level = 0.95)
+
+# Create data frame containing variables of interest
+df <- as.data.frame(fit.confidence)
+df$year <- xs
+df <- melt(df, id.vars = "year")
+
+# Create the plot
+p <- ggplot() +
+  geom_line(aes(x = year, y = value, colour = variable), df) +
+  geom_point(aes(x = simulation.df$year, y = simulation.df$pop)) +
+  scale_x_continuous("Year") +
+  scale_y_continuous("Population") +
+  ggtitle("Cubic regression with confidence intervals") +
+  scale_color_brewer(name = "Legend", labels = c("Fit", "95% Lower Bound", "95% Upper Bound"), palette = "Set1")
+
+print(p)
+
+
+```
